@@ -15,7 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function Feed() {
   const { toast } = useToast();
   const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null);
-  const [searchText, setSearchText] = useState<string>("");
   const { data: currentUser } = useCurrentUser();
 
   const {
@@ -61,16 +60,6 @@ export default function Feed() {
                 onSelectHashtag={handleHashtagSelect}
               />
 
-              {/* Search Bar */}
-              <div className="mb-4">
-                <Input
-                  placeholder="Search posts or hashtags..."
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  className="w-full rounded-md border-gray-300"
-                />
-              </div>
-
               {/* Posts */}
               <div className="space-y-4">
                 {postsLoading ? (
@@ -96,17 +85,7 @@ export default function Feed() {
                     </div>
                   ))
                 ) : posts && posts.length > 0 ? (
-                  posts
-                    .filter(
-                      (post: any) =>
-                        post.content
-                          .toLowerCase()
-                          .includes(searchText.toLowerCase()) ||
-                        post.hashtag
-                          .toLowerCase()
-                          .includes(searchText.toLowerCase()),
-                    )
-                    .map((post: any) => <PostCard key={post.id} post={post} />)
+                  posts.map((post: any) => <PostCard key={post.id} post={post} />)
                 ) : (
                   <div className="bg-white rounded-lg shadow-sm p-8 text-center">
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
