@@ -62,9 +62,20 @@ export function AuthForms({
   onSuccess,
   onModeChange,
 }: AuthFormsProps) {
-  const [mode, setMode] = useState<"login" | "register">(initialMode);
+  const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode);
   const [inviteVerified, setInviteVerified] = useState(false);
   const [enteredInviteCode, setEnteredInviteCode] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const [registerSuccess, setRegisterSuccess] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+
+
+
 
   const { toast } = useToast();
 
@@ -92,8 +103,18 @@ export function AuthForms({
 
   const switchMode = (newMode: "login" | "register") => {
     setMode(newMode);
+    loginForm.reset();
+    registerForm.reset();
+    setOtp("");
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setForgotEmail("");
+    setOtpSent(false);
+    setInviteVerified(false);
+    setEnteredInviteCode("");
     if (onModeChange) onModeChange(newMode);
   };
+  
 
   const onLoginSubmit = (values: LoginFormValues) => {
     login.mutate(values, {
@@ -148,6 +169,7 @@ export function AuthForms({
               title: "Registration successful",
               description: "Your account has been created",
             });
+            setRegisterSuccess(true);
           } catch (err) {
             toast({
               title: "Registration succeeded, but invite tracking failed",
@@ -218,9 +240,15 @@ export function AuthForms({
                       />
                     </FormControl>
                     <div className="flex justify-end mt-1">
-                      <Button variant="link" size="sm" className="h-auto p-0">
-                        Forgot password?
-                      </Button>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => setMode("forgot")}
+                    >
+                      Forgot password?
+                    </Button>
+
                     </div>
                     <FormMessage />
                   </FormItem>
@@ -258,167 +286,179 @@ export function AuthForms({
             </h2>
           </div>
 
-          <Form {...registerForm}>
-            <form
-              onSubmit={
-                inviteVerified
-                  ? registerForm.handleSubmit(onRegisterSubmit)
-                  : async (e) => {
-                      e.preventDefault();
-                      try {
-                        const res = await fetch("/api/invite/validate", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ code: enteredInviteCode }),
-                        });
+          {registerSuccess ? (
+            <div className="text-center space-y-4">
+              <h2 className="text-lg font-semibold text-green-700">
+                🎉 Registration Successful!
+              </h2>
+              <p className="text-sm text-gray-600">
+                You can now log in with your account.
+              </p>
+              <Button onClick={() => switchMode("login")} className="w-full">
+                Go to Login
+              </Button>
+            </div>
+          ) : (
+            <Form {...registerForm}>
+              <form
+                onSubmit={
+                  inviteVerified
+                    ? registerForm.handleSubmit(onRegisterSubmit)
+                    : async (e) => {
+                        e.preventDefault();
+                        try {
+                          const res = await fetch("/api/invite/validate", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ code: enteredInviteCode }),
+                          });
 
-                        if (!res.ok) {
-                          const data = await res.json();
+                          if (!res.ok) {
+                            const data = await res.json();
+                            toast({
+                              title: "Invalid invite code",
+                              description:
+                                data.message ||
+                                "The invite code is incorrect or already used",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+
                           toast({
-                            title: "Invalid invite code",
-                            description: data.message || "The invite code is incorrect or already used",
+                            title: "Invite code accepted",
+                            description: "You can now create your account.",
+                          });
+
+                          setInviteVerified(true);
+                          registerForm.setValue("inviteCode", enteredInviteCode);
+                        } catch (err) {
+                          toast({
+                            title: "Error",
+                            description:
+                              "Something went wrong while checking the invite code.",
                             variant: "destructive",
                           });
-                          return;
                         }
-
-                        toast({
-                          title: "Invite code accepted",
-                          description: "You can now create your account.",
-                        });
-
-                        setInviteVerified(true);
-                        registerForm.setValue("inviteCode", enteredInviteCode);
-                      } catch (err) {
-                        toast({
-                          title: "Error",
-                          description: "Something went wrong while checking the invite code.",
-                          variant: "destructive",
-                        });
                       }
-                    }
-              }
-              className="space-y-4"
-            >
-              {!inviteVerified ? (
-                <>
-                  <FormField
-                    control={registerForm.control}
-                    name="inviteCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Invite Code</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Enter your invite code"
-                            {...field}
-                            value={enteredInviteCode}
-                            onChange={(e) => {
-                              field.onChange(e); // keep RHF in sync
-                              setEnteredInviteCode(e.target.value); // also update local state
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                }
+                className="space-y-4"
+              >
+                {/* your inviteCode + fullName + username + etc stays unchanged here */}
+                {!inviteVerified ? (
+                  <>
+                    <FormField
+                      control={registerForm.control}
+                      name="inviteCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Invite Code</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Enter your invite code"
+                              {...field}
+                              value={enteredInviteCode}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setEnteredInviteCode(e.target.value);
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="submit" className="w-full">
+                      Continue
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {/* fullName, username, email, password, confirmPassword fields go here (unchanged) */}
+                    <FormField
+                      control={registerForm.control}
+                      name="fullName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="John Doe" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <Button type="submit" className="w-full">
-                    Continue
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <FormField
-                    control={registerForm.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={registerForm.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Username</FormLabel>
+                          <FormControl>
+                            <Input placeholder="johndoe" {...field} />
+                          </FormControl>
+                          <FormDescription>This will be your unique identifier</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={registerForm.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Username</FormLabel>
-                        <FormControl>
-                          <Input placeholder="johndoe" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          This will be your unique identifier
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={registerForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email address</FormLabel>
+                          <FormControl>
+                            <Input placeholder="you@example.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={registerForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email address</FormLabel>
-                        <FormControl>
-                          <Input placeholder="you@example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={registerForm.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Password</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="••••••••" {...field} />
+                          </FormControl>
+                          <FormDescription>Must be at least 8 characters</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={registerForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="••••••••" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          Must be at least 8 characters
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={registerForm.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confirm Password</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="••••••••" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={registerForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Confirm Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="••••••••" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={register.isPending}
-                  >
-                    {register.isPending ? "Creating account..." : "Sign up"}
-                  </Button>
-                </>
-              )}
-
-            </form>
-          </Form>
-
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={register.isPending}
+                    >
+                      {register.isPending ? "Creating account..." : "Sign up"}
+                    </Button>
+                  </>
+                )}
+              </form>
+            </Form>
+          )}
 
           <div className="mt-4 text-center">
             <p className="text-sm text-gray-600">
@@ -427,6 +467,149 @@ export function AuthForms({
                 variant="link"
                 className="h-auto p-0"
                 onClick={() => switchMode("login")}
+              >
+                Log in
+              </Button>
+            </p>
+          </div>
+        </>
+      )}
+      {mode === "forgot" && (
+        <>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Reset your Password
+            </h2>
+          </div>
+
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setResetting(true);
+            
+              try {
+                const endpoint = otp && newPassword && confirmNewPassword
+                  ? "/api/auth/reset-password"
+                  : "/api/auth/request-reset";
+
+                const body = otp && newPassword && confirmNewPassword
+                  ? { email: forgotEmail, otp, newPassword, confirmNewPassword }
+                  : { email: forgotEmail };
+
+                const res = await fetch(endpoint, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(body),
+                });
+            
+                const data = await res.json();
+            
+                if (!res.ok || !data.success) {
+                  toast({
+                    title: "Email not found",
+                    description: data.message || "This email is not registered.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+            
+                if (otp && newPassword && confirmNewPassword) {
+                  toast({
+                    title: "Password reset successful",
+                    description: "You can now log in with your new password.",
+                  });
+                  setMode("login");
+                  setOtpSent(false);
+                  setOtp("");
+                  setNewPassword("");
+                  setConfirmNewPassword("");
+                  setForgotEmail("");
+                } else {
+                  toast({
+                    title: "OTP sent",
+                    description: "Check your email for the verification code.",
+                  });
+                  setOtpSent(true);
+                }
+                
+
+                setOtpSent(true); // ✅ Show the OTP field now
+            
+                // Step 5 will continue from here
+              } catch (err) {
+                toast({
+                  title: "Request failed",
+                  description: "Something went wrong. Please try again.",
+                  variant: "destructive",
+                });
+              }
+              setResetting(false); // ✅ Add this outside the try/catch, so it always runs
+            }}            
+            className="space-y-4"
+          >
+            <div>
+              <FormLabel>Email Address</FormLabel>
+              <Input
+                type="email"
+                placeholder="you@example.com"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+              />
+            </div>
+            {otpSent && (
+              <div>
+                <FormLabel>OTP Code</FormLabel>
+                <Input
+                  type="text"
+                  placeholder="Enter the OTP sent to your email"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                />
+                {otp && (
+                  <>
+                    <div>
+                      <FormLabel>New Password</FormLabel>
+                      <Input
+                        type="password"
+                        placeholder="Enter new password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <FormLabel>Confirm New Password</FormLabel>
+                      <Input
+                        type="password"
+                        placeholder="Re-enter new password"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={resetting}>
+              {resetting ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin" />
+                  Processing...
+                </div>
+              ) : (
+                "Send OTP"
+              )}
+            </Button>
+
+          </form>
+
+          <div className="mt-4 text-center">
+            <p className="text-sm text-gray-600">
+              Back to{" "}
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                onClick={() => setMode("login")}
               >
                 Log in
               </Button>
