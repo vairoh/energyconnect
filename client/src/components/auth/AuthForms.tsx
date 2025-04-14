@@ -557,38 +557,64 @@ export function AuthForms({
               />
             </div>
             {otpSent && (
-              <div>
-                <FormLabel>OTP Code</FormLabel>
-                <Input
-                  type="text"
-                  placeholder="Enter the OTP sent to your email"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
+              <>
+                <FormField
+                  name="otp"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>OTP Code</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          placeholder="Enter the OTP sent to your email"
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value)}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
                 />
+
                 {otp && (
                   <>
-                    <div>
-                      <FormLabel>New Password</FormLabel>
-                      <Input
-                        type="password"
-                        placeholder="Enter new password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <FormLabel>Confirm New Password</FormLabel>
-                      <Input
-                        type="password"
-                        placeholder="Re-enter new password"
-                        value={confirmNewPassword}
-                        onChange={(e) => setConfirmNewPassword(e.target.value)}
-                      />
-                    </div>
+                    <FormField
+                      name="newPassword"
+                      render={() => (
+                        <FormItem>
+                          <FormLabel>New Password</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="Enter new password"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      name="confirmNewPassword"
+                      render={() => (
+                        <FormItem>
+                          <FormLabel>Confirm New Password</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="Re-enter new password"
+                              value={confirmNewPassword}
+                              onChange={(e) => setConfirmNewPassword(e.target.value)}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
                   </>
                 )}
-              </div>
+              </>
             )}
+
 
             <Button type="submit" className="w-full" disabled={resetting}>
               {resetting ? (
