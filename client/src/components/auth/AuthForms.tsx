@@ -488,14 +488,16 @@ export function AuthForms({
               setResetting(true);
             
               try {
-                const endpoint = otp && newPassword && confirmNewPassword
-                  ? "/api/auth/reset-password"
-                  : "/api/auth/request-reset";
-
-                const body = otp && newPassword && confirmNewPassword
-                  ? { email: forgotEmail, otp, newPassword, confirmNewPassword }
-                  : { email: forgotEmail };
-
+                const endpoint =
+                  otp && newPassword && confirmNewPassword
+                    ? "/api/auth/reset-password"
+                    : "/api/auth/request-reset";
+          
+                const body =
+                  otp && newPassword && confirmNewPassword
+                    ? { email: forgotEmail, otp, newPassword, confirmNewPassword }
+                    : { email: forgotEmail };
+          
                 const res = await fetch(endpoint, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -531,11 +533,8 @@ export function AuthForms({
                   });
                   setOtpSent(true);
                 }
-                
-
-                setOtpSent(true); // ✅ Show the OTP field now
-            
-                // Step 5 will continue from here
+          
+                // Optionally: setOtpSent(true);
               } catch (err) {
                 toast({
                   title: "Request failed",
@@ -543,78 +542,61 @@ export function AuthForms({
                   variant: "destructive",
                 });
               }
-              setResetting(false); // ✅ Add this outside the try/catch, so it always runs
-            }}            
+              setResetting(false);
+            }}
             className="space-y-4"
           >
             <div>
               <FormLabel>Email Address</FormLabel>
-              <Input
-                type="email"
-                placeholder="you@example.com"
-                value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
-              />
-            </div>
-            {otpSent && (
-              <>
-                <FormField
-                  name="otp"
-                  render={() => (
-                    <FormItem>
-                      <FormLabel>OTP Code</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="text"
-                          placeholder="Enter the OTP sent to your email"
-                          value={otp}
-                          onChange={(e) => setOtp(e.target.value)}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
+              <FormControl>
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
                 />
+              </FormControl>
+            </div>
 
+            {otpSent && (
+              <div>
+                <FormLabel>OTP Code</FormLabel>
+                <FormControl>
+                  <Input
+                    type="text"
+                    placeholder="Enter the OTP sent to your email"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                  />
+                </FormControl>
                 {otp && (
                   <>
-                    <FormField
-                      name="newPassword"
-                      render={() => (
-                        <FormItem>
-                          <FormLabel>New Password</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="Enter new password"
-                              value={newPassword}
-                              onChange={(e) => setNewPassword(e.target.value)}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      name="confirmNewPassword"
-                      render={() => (
-                        <FormItem>
-                          <FormLabel>Confirm New Password</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="Re-enter new password"
-                              value={confirmNewPassword}
-                              onChange={(e) => setConfirmNewPassword(e.target.value)}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                    <div>
+                      <FormLabel>New Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Enter new password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                      </FormControl>
+                    </div>
+                    <div>
+                      <FormLabel>Confirm New Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Re-enter new password"
+                          value={confirmNewPassword}
+                          onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        />
+                      </FormControl>
+                    </div>
                   </>
                 )}
-              </>
+              </div>
             )}
-
 
             <Button type="submit" className="w-full" disabled={resetting}>
               {resetting ? (
@@ -626,17 +608,12 @@ export function AuthForms({
                 "Send OTP"
               )}
             </Button>
-
           </form>
 
           <div className="mt-4 text-center">
             <p className="text-sm text-gray-600">
               Back to{" "}
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() => setMode("login")}
-              >
+              <Button variant="link" className="h-auto p-0" onClick={() => setMode("login")}>
                 Log in
               </Button>
             </p>
