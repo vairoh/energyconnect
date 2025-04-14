@@ -63,6 +63,9 @@ export function AuthForms({
   onModeChange,
 }: AuthFormsProps) {
   const [mode, setMode] = useState<"login" | "register">(initialMode);
+  const [inviteVerified, setInviteVerified] = useState(false);
+  const [enteredInviteCode, setEnteredInviteCode] = useState("");
+
   const { toast } = useToast();
 
   const login = useLogin();
@@ -257,115 +260,165 @@ export function AuthForms({
 
           <Form {...registerForm}>
             <form
-              onSubmit={registerForm.handleSubmit(onRegisterSubmit)}
+              onSubmit={
+                inviteVerified
+                  ? registerForm.handleSubmit(onRegisterSubmit)
+                  : async (e) => {
+                      e.preventDefault();
+                      try {
+                        const res = await fetch("/api/invite/validate", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ code: enteredInviteCode }),
+                        });
+
+                        if (!res.ok) {
+                          const data = await res.json();
+                          toast({
+                            title: "Invalid invite code",
+                            description: data.message || "The invite code is incorrect or already used",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+
+                        toast({
+                          title: "Invite code accepted",
+                          description: "You can now create your account.",
+                        });
+
+                        setInviteVerified(true);
+                        registerForm.setValue("inviteCode", enteredInviteCode);
+                      } catch (err) {
+                        toast({
+                          title: "Error",
+                          description: "Something went wrong while checking the invite code.",
+                          variant: "destructive",
+                        });
+                      }
+                    }
+              }
               className="space-y-4"
             >
-              <FormField
-                control={registerForm.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!inviteVerified ? (
+                <>
+                  <FormField
+                    control={registerForm.control}
+                    name="inviteCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Invite Code</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Enter your invite code"
+                            {...field}
+                            value={enteredInviteCode}
+                            onChange={(e) => {
+                              field.onChange(e); // keep RHF in sync
+                              setEnteredInviteCode(e.target.value); // also update local state
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={registerForm.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input placeholder="johndoe" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      This will be your unique identifier
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <Button type="submit" className="w-full">
+                    Continue
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <FormField
+                    control={registerForm.control}
+                    name="fullName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={registerForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email address</FormLabel>
-                    <FormControl>
-                      <Input placeholder="you@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={registerForm.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input placeholder="johndoe" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          This will be your unique identifier
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={registerForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Must be at least 8 characters
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={registerForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="you@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={registerForm.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={registerForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="••••••••" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Must be at least 8 characters
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={registerForm.control}
-                name="inviteCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Invite Code</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter your invite code" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={register.isPending}
-              >
-                {register.isPending ? "Creating account..." : "Sign up"}
-              </Button>
+                  <FormField
+                    control={registerForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="••••••••" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={register.isPending}
+                  >
+                    {register.isPending ? "Creating account..." : "Sign up"}
+                  </Button>
+                </>
+              )}
+
             </form>
           </Form>
+
 
           <div className="mt-4 text-center">
             <p className="text-sm text-gray-600">
