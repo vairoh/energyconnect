@@ -241,6 +241,7 @@ export function AuthForms({
                     </FormControl>
                     <div className="flex justify-end mt-1">
                     <Button
+                      type="button"
                       variant="link"
                       size="sm"
                       className="h-auto p-0"
