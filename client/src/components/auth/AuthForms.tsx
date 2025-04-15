@@ -62,10 +62,10 @@ export function AuthForms({
   onSuccess,
   onModeChange,
 }: AuthFormsProps) {
+  // Removed forgotEmail state since we now use forgotForm
   const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode);
   const [inviteVerified, setInviteVerified] = useState(false);
   const [enteredInviteCode, setEnteredInviteCode] = useState("");
-  const [forgotEmail, setForgotEmail] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -98,14 +98,19 @@ export function AuthForms({
     },
   });
 
+  // Create a form for the forgot password section
+  const forgotForm = useForm<{ email: string }>({
+    defaultValues: { email: "" },
+  });
+
   const switchMode = (newMode: "login" | "register") => {
     setMode(newMode);
     loginForm.reset();
     registerForm.reset();
+    forgotForm.reset();
     setOtp("");
     setNewPassword("");
     setConfirmNewPassword("");
-    setForgotEmail("");
     setOtpSent(false);
     setInviteVerified(false);
     setEnteredInviteCode("");
@@ -473,124 +478,129 @@ export function AuthForms({
                 Reset your Password
               </h2>
             </div>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setResetting(true);
-                try {
-                  const endpoint =
-                    otp && newPassword && confirmNewPassword
-                      ? "/api/auth/reset-password"
-                      : "/api/auth/request-reset";
-                  const body =
-                    otp && newPassword && confirmNewPassword
-                      ? { email: forgotEmail, otp, newPassword, confirmNewPassword }
-                      : { email: forgotEmail };
-                  const res = await fetch(endpoint, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(body),
-                  });
-                  const data = await res.json();
-                  if (!res.ok || !data.success) {
+            <Form {...forgotForm}>
+              <form
+                onSubmit={forgotForm.handleSubmit(async (data) => {
+                  setResetting(true);
+                  try {
+                    const email = data.email;
+                    const endpoint =
+                      otp && newPassword && confirmNewPassword
+                        ? "/api/auth/reset-password"
+                        : "/api/auth/request-reset";
+                    const body =
+                      otp && newPassword && confirmNewPassword
+                        ? { email, otp, newPassword, confirmNewPassword }
+                        : { email };
+                    const res = await fetch(endpoint, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(body),
+                    });
+                    const responseData = await res.json();
+                    if (!res.ok || !responseData.success) {
+                      toast({
+                        title: "Email not found",
+                        description:
+                          responseData.message ||
+                          "This email is not registered.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    if (otp && newPassword && confirmNewPassword) {
+                      toast({
+                        title: "Password reset successful",
+                        description:
+                          "You can now log in with your new password.",
+                      });
+                      setMode("login");
+                      setOtpSent(false);
+                      setOtp("");
+                      setNewPassword("");
+                      setConfirmNewPassword("");
+                      forgotForm.reset();
+                    } else {
+                      toast({
+                        title: "OTP sent",
+                        description: "Check your email for the verification code.",
+                      });
+                      setOtpSent(true);
+                    }
+                  } catch (err) {
                     toast({
-                      title: "Email not found",
-                      description:
-                        data.message || "This email is not registered.",
+                      title: "Request failed",
+                      description: "Something went wrong. Please try again.",
                       variant: "destructive",
                     });
-                    return;
                   }
-                  if (otp && newPassword && confirmNewPassword) {
-                    toast({
-                      title: "Password reset successful",
-                      description: "You can now log in with your new password.",
-                    });
-                    setMode("login");
-                    setOtpSent(false);
-                    setOtp("");
-                    setNewPassword("");
-                    setConfirmNewPassword("");
-                    setForgotEmail("");
-                  } else {
-                    toast({
-                      title: "OTP sent",
-                      description: "Check your email for the verification code.",
-                    });
-                    setOtpSent(true);
-                  }
-                } catch (err) {
-                  toast({
-                    title: "Request failed",
-                    description: "Something went wrong. Please try again.",
-                    variant: "destructive",
-                  });
-                }
-                setResetting(false);
-              }}
-              className="space-y-4"
-            >
-              <div>
-                <FormLabel>Email Address</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                  />
-                </FormControl>
-              </div>
-              {otpSent && (
+                  setResetting(false);
+                })}
+                className="space-y-4"
+              >
                 <div>
-                  <FormLabel>OTP Code</FormLabel>
+                  <FormLabel>Email Address</FormLabel>
                   <FormControl>
                     <Input
-                      type="text"
-                      placeholder="Enter the OTP sent to your email"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
+                      type="email"
+                      placeholder="you@example.com"
+                      {...forgotForm.register("email")}
                     />
                   </FormControl>
-                  {otp && (
-                    <>
-                      <div>
-                        <FormLabel>New Password</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="Enter new password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                          />
-                        </FormControl>
-                      </div>
-                      <div>
-                        <FormLabel>Confirm New Password</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="Re-enter new password"
-                            value={confirmNewPassword}
-                            onChange={(e) => setConfirmNewPassword(e.target.value)}
-                          />
-                        </FormControl>
-                      </div>
-                    </>
-                  )}
                 </div>
-              )}
-              <Button type="submit" className="w-full" disabled={resetting}>
-                {resetting ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin" />
-                    Processing...
+                {otpSent && (
+                  <div>
+                    <FormLabel>OTP Code</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        placeholder="Enter the OTP sent to your email"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                      />
+                    </FormControl>
+                    {otp && (
+                      <>
+                        <div>
+                          <FormLabel>New Password</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="Enter new password"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                            />
+                          </FormControl>
+                        </div>
+                        <div>
+                          <FormLabel>Confirm New Password</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="Re-enter new password"
+                              value={confirmNewPassword}
+                              onChange={(e) =>
+                                setConfirmNewPassword(e.target.value)
+                              }
+                            />
+                          </FormControl>
+                        </div>
+                      </>
+                    )}
                   </div>
-                ) : (
-                  "Send OTP"
                 )}
-              </Button>
-            </form>
+                <Button type="submit" className="w-full" disabled={resetting}>
+                  {resetting ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin" />
+                      Processing...
+                    </div>
+                  ) : (
+                    "Send OTP"
+                  )}
+                </Button>
+              </form>
+            </Form>
             <div className="mt-4 text-center">
               <p className="text-sm text-gray-600">
                 Back to{" "}
