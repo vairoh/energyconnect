@@ -212,7 +212,9 @@ export function AuthForms({
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email address</FormLabel>
+                      <FormLabel className={loginForm.formState.errors.email ? "text-red-600" : ""}>
+                        Email address
+                      </FormLabel>
                       <FormControl>
                         <Input placeholder="you@example.com" {...field} />
                       </FormControl>
@@ -225,7 +227,9 @@ export function AuthForms({
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <FormLabel className={loginForm.formState.errors.password ? "text-red-600" : ""}>
+                        Password
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type="password"
