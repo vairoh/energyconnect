@@ -26,10 +26,11 @@ export function Navbar() {
   function handleLogout() {
     logout.mutate(undefined, {
       onSuccess: () => {
-        window.location.href = "/"; // Redirect to homepage after logout
+        window.location.reload(); // Force reload to ensure clean state
       },
       onError: (err) => {
         console.error("Logout failed:", err);
+        window.location.href = "/"; // Fallback redirect
       },
     });
   }

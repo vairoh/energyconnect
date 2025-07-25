@@ -62,6 +62,7 @@ export function useLogout() {
       apiRequest("POST", "/api/auth/logout")
         .then(() => undefined),
     onSuccess: () => {
+      queryClient.clear(); // Clear all cached data
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     }
   });

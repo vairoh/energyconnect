@@ -29,6 +29,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   fullName: true,
   email: true,
+  invitedByUserId: true,
 });
 
 // Posts schema
@@ -39,6 +40,7 @@ export const posts = pgTable("posts", {
   userId: integer("user_id").references(() => users.id),
   isAnonymous: boolean("is_anonymous").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertPostSchema = createInsertSchema(posts).omit({
@@ -46,16 +48,54 @@ export const insertPostSchema = createInsertSchema(posts).omit({
   createdAt: true,
 });
 
+// Reactions schema (replacing endorsements)
+export const reactions = pgTable("reactions", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id")
+    .references(() => posts.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: integer("user_id")
+    .references(() => users.id)
+    .notNull(),
+  reaction: text("reaction").notNull(), // "like", "love", "haha", "wow", "sad", "angry"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertReactionSchema = createInsertSchema(reactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Comments schema
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id")
+    .references(() => posts.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: integer("user_id")
+    .references(() => users.id)
+    .notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCommentSchema = createInsertSchema(comments).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Keep endorsements for backward compatibility but mark as deprecated
 // Endorsements schema
 export const endorsements = pgTable("endorsements", {
   id: serial("id").primaryKey(),
   postId: integer("post_id")
-    .references(() => posts.id)
+    .references(() => posts.id, { onDelete: "cascade" })
     .notNull(),
   userId: integer("user_id")
     .references(() => users.id)
     .notNull(),
   hashtag: text("hashtag").notNull(),
+  type: text("type").notNull().default("positive"), // "positive" or "negative"
 });
 
 export const insertEndorsementSchema = createInsertSchema(endorsements).omit({
@@ -84,6 +124,12 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type Post = typeof posts.$inferSelect;
 export type InsertPost = z.infer<typeof insertPostSchema>;
+
+export type Reaction = typeof reactions.$inferSelect;
+export type InsertReaction = z.infer<typeof insertReactionSchema>;
+
+export type Comment = typeof comments.$inferSelect;
+export type InsertComment = z.infer<typeof insertCommentSchema>;
 
 export type Endorsement = typeof endorsements.$inferSelect;
 export type InsertEndorsement = z.infer<typeof insertEndorsementSchema>;

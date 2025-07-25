@@ -1,0 +1,576 @@
+[
+  {
+    "id": "TC001",
+    "title": "User Registration with Valid Invite Code",
+    "description": "Verify that a new user can register successfully using a valid invite code, valid username, email, and password.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the registration page."
+      },
+      {
+        "type": "action",
+        "description": "Input a valid invite code."
+      },
+      {
+        "type": "action",
+        "description": "Enter a valid username."
+      },
+      {
+        "type": "action",
+        "description": "Enter a valid email address."
+      },
+      {
+        "type": "action",
+        "description": "Enter a valid password meeting password policy."
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form."
+      },
+      {
+        "type": "assertion",
+        "description": "Check for successful registration confirmation and redirection to login or main feed."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "User Registration Fails with Invalid Invite Code",
+    "description": "Verify that registration fails with appropriate error message when an invalid or missing invite code is submitted.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the registration page."
+      },
+      {
+        "type": "action",
+        "description": "Input an invalid or blank invite code."
+      },
+      {
+        "type": "action",
+        "description": "Enter valid username, email, and password."
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that registration is rejected with a clear invite code validation error message."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure user remains on registration page without account being created."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "User Login with Correct Credentials",
+    "description": "Check that a registered user can login successfully with valid email and password.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter registered email."
+      },
+      {
+        "type": "action",
+        "description": "Enter correct password."
+      },
+      {
+        "type": "action",
+        "description": "Click login button."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm authentication success with redirection to main feed."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify session is active and user state is updated."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "User Login Fails with Incorrect Credentials",
+    "description": "Ensure login fails with invalid email or password and error message is displayed.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter registered email."
+      },
+      {
+        "type": "action",
+        "description": "Enter incorrect password."
+      },
+      {
+        "type": "action",
+        "description": "Click login button."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify error message indicating invalid credentials."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm user is not logged in and remains on login page."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Create Post with Mandatory Hashtag and Optional Anonymity",
+    "description": "Verify that authenticated users can create a post with exactly one hashtag and optionally mark it as anonymous.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as authenticated user."
+      },
+      {
+        "type": "action",
+        "description": "Navigate to post creation form."
+      },
+      {
+        "type": "action",
+        "description": "Enter valid post content."
+      },
+      {
+        "type": "action",
+        "description": "Select exactly one hashtag."
+      },
+      {
+        "type": "action",
+        "description": "Optionally check the anonymous posting option."
+      },
+      {
+        "type": "action",
+        "description": "Submit the post."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify post is created and appears in the main feed with correct hashtag and anonymity state."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm post data is persisted in backend with correct user association for non-anonymous posts."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Post Creation Fails Without Hashtag",
+    "description": "Ensure post submission is rejected when no hashtag or multiple hashtags are provided.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as authenticated user."
+      },
+      {
+        "type": "action",
+        "description": "Navigate to post creation form."
+      },
+      {
+        "type": "action",
+        "description": "Enter valid post content."
+      },
+      {
+        "type": "action",
+        "description": "Do not select any hashtag or select more than one hashtag."
+      },
+      {
+        "type": "action",
+        "description": "Submit the post."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation error for hashtag requirement is displayed."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm post is not created nor saved."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Main Feed Displays Posts and Filters by Hashtag",
+    "description": "Verify that the main feed shows posts and that users can filter posts based on selected hashtags.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login and navigate to main feed page."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the feed loads a list of posts with content, hashtags, endorsement count, and comment count."
+      },
+      {
+        "type": "action",
+        "description": "Select a hashtag filter from available hashtags."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the feed updates to display only posts tagged with the selected hashtag."
+      },
+      {
+        "type": "action",
+        "description": "Remove or reset hashtag filter."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify feed returns to showing all posts."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "User Can Endorse a Post Once with Real-Time Update",
+    "description": "Check that a logged-in user can endorse (like) a post only once and that the endorsement count updates in real-time.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as authenticated user."
+      },
+      {
+        "type": "action",
+        "description": "Navigate to a post in the main feed."
+      },
+      {
+        "type": "action",
+        "description": "Click the endorse/like button on the post."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify endorsement count increments instantly in the UI."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to click endorse button on the same post again."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that no additional endorsement is counted and UI prevents multiple endorsements."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Commenting System with Collapsible UI and Persistence",
+    "description": "Verify users can add comments to posts, comments appear in a collapsible section, and comments persist after page refresh.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as authenticated user."
+      },
+      {
+        "type": "action",
+        "description": "Navigate to a post and expand the comments section if collapsed."
+      },
+      {
+        "type": "action",
+        "description": "Enter a valid comment message."
+      },
+      {
+        "type": "action",
+        "description": "Submit the comment."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new comment appears instantly within the comment section."
+      },
+      {
+        "type": "action",
+        "description": "Refresh the page."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure that the comment persists and is visible in the expanded section."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Post Deletion with Confirmation by Post Author Only",
+    "description": "Check that only the author of a post can delete it and that a confirmation dialog appears before deletion.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as user who created a specific post."
+      },
+      {
+        "type": "action",
+        "description": "Navigate to the authored post."
+      },
+      {
+        "type": "action",
+        "description": "Click the delete post button."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a confirmation dialog appears."
+      },
+      {
+        "type": "action",
+        "description": "Confirm the deletion in dialog."
+      },
+      {
+        "type": "assertion",
+        "description": "Check the post is removed from the main feed and backend."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Post Deletion Forbidden for Non-Authors",
+    "description": "Ensure users cannot delete posts they did not author; the delete option should be absent or disabled.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as a different user than the post author."
+      },
+      {
+        "type": "action",
+        "description": "Navigate to a post not authored by the user."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the delete button is not present or disabled."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to delete post by direct API call or UI manipulation."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm backend rejects deletion request with appropriate authorization error."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Hashtag Discovery Displays Trending and Common Hashtags",
+    "description": "Verify that the hashtag discovery pane displays correctly updated trending and common hashtags.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login and navigate to the feed page."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm trending hashtags are displayed sorted by endorsement popularity."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm common hashtags are listed as per usage statistics."
+      },
+      {
+        "type": "action",
+        "description": "Trigger endorsement or post creation to update hashtag counts."
+      },
+      {
+        "type": "action",
+        "description": "Refresh or trigger hashtag data update."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that trending/common hashtags refresh accordingly reflecting updated data."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "User Profile Shows Posts and Hashtag Endorsement Statistics",
+    "description": "Validate that navigating to a user profile displays their posts and aggregated hashtag endorsement statistics.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login and navigate to a user profile page."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm user's posts are listed correctly with content, hashtags, and endorsements."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that overall hashtag endorsement statistics for the user are displayed and accurate."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Unauthenticated User Cannot Create Posts, Endorse or Comment",
+    "description": "Verify that non-logged in users cannot create posts, endorse, or comment, with appropriate UI feedback or redirect.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Ensure user is logged out or not authenticated."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access post creation form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is denied or user is redirected to login."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to endorse a post."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm action is blocked with a login prompt or disabled state."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to submit a comment."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify comment submission is prevented with suitable error message."
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Validation Errors Display User-Friendly Toast Notifications",
+    "description": "Check that all validation errors including invite code, post hashtag selection, login failures, and others result in clear toast notifications.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Trigger invalid input scenarios in registration, login, post creation, and endorsements."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a toast notification appears with a clear and actionable error message for each case."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm toast notifications fade or dismiss appropriately after a timeout."
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "API Endpoints Enforce Authentication and Return Correct Errors",
+    "description": "Test all major API routes to ensure session-based authentication is required where applicable and errors are returned with correct status codes.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send API requests for creating posts, endorsing, commenting, deleting posts without authentication."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify 401 Unauthorized responses with descriptive messages."
+      },
+      {
+        "type": "action",
+        "description": "Send requests with invalid payloads (e.g., missing hashtag in post creation)."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm 400 Bad Request responses with validation error details."
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Responsive UI Layout Across Desktop and Mobile",
+    "description": "Verify the application UI adjusts correctly on different screen sizes and remains accessible and user-friendly.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Load the application on desktop screen size."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm navigation, feeds, forms, and controls display appropriately and are fully usable."
+      },
+      {
+        "type": "action",
+        "description": "Resize viewport or load application on mobile device."
+      },
+      {
+        "type": "assertion",
+        "description": "Check UI reflows, menus collapse or expand properly, and controls remain accessible."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure no horizontal scrolling is needed and all elements are readable and interactive."
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Session Management Persists Across Navigation and Logout Works",
+    "description": "Check that user sessions persist correctly across page navigation and that logout clears session and redirects properly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login successfully."
+      },
+      {
+        "type": "action",
+        "description": "Navigate through multiple pages including main feed, profile, and post creation."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify session persists and user remains authenticated."
+      },
+      {
+        "type": "action",
+        "description": "Click logout."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm user is logged out, session cleared, and redirected to login or home page."
+      }
+    ]
+  }
+]

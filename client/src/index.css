@@ -4,24 +4,34 @@
 
 :root {
   --primary: 0 0% 10%;
-  /* black */
+  /* black (same as before) */
   --primary-foreground: 0 0% 100%;
   /* white text on black */
 
-  --background: 0 0% 100%;
+  --background: 35 20% 96%;
+  /* light beige background */
   --foreground: 0 0% 10%;
+  /* black text (same as before) */
 
   --card: 0 0% 100%;
+  /* white cards */
   --card-foreground: 0 0% 10%;
+  /* black text on cards */
 
-  --muted: 240 5% 96%;
+  --muted: 35 15% 92%;
+  /* light beige muted areas */
   --muted-foreground: 240 3% 40%;
+  /* grey muted text (same as before) */
 
-  --border: 240 5% 90%;
-  --input: 240 5% 90%;
+  --border: 35 15% 88%;
+  /* light beige borders */
+  --input: 35 15% 90%;
+  /* light beige inputs */
 
-  --accent: 240 5% 95%;
+  --accent: 35 20% 88%;
+  /* light beige accent */
   --accent-foreground: 240 5% 20%;
+  /* dark grey accent text */
 }
 
 

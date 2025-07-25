@@ -34,9 +34,15 @@ const formSchema = z.object({
     .string()
     .min(5, { message: "Post content must be at least 5 characters" })
     .max(500, { message: "Post content cannot exceed 500 characters" }),
-  hashtag: z.string().min(1, { message: "Hashtag is required" }),
+  hashtag: z.string().optional(),
   isAnonymous: z.boolean().default(false),
   customHashtag: z.string().optional(),
+}).refine((data) => {
+  // Either hashtag or customHashtag must be provided
+  return (data.hashtag && data.hashtag.length > 0) || (data.customHashtag && data.customHashtag.length > 0);
+}, {
+  message: "A hashtag is required",
+  path: ["hashtag"], // Show error on hashtag field
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -66,12 +72,22 @@ export function PostForm({ onSuccess }: PostFormProps) {
 
   const createPost = useMutation({
     mutationFn: (values: FormValues) => {
-      let finalHashtag = values.hashtag;
+      let finalHashtag = "";
+      
       if (useCustomHashtag && values.customHashtag) {
-        finalHashtag = values.customHashtag;
+        // Using custom hashtag
+        finalHashtag = values.customHashtag.trim();
         if (!finalHashtag.startsWith("#")) {
           finalHashtag = `#${finalHashtag}`;
         }
+      } else if (values.hashtag) {
+        // Using predefined hashtag
+        finalHashtag = values.hashtag;
+      }
+
+      // Validate that we have a hashtag
+      if (!finalHashtag) {
+        throw new Error("A hashtag is required");
       }
 
       return apiRequest("POST", "/api/posts", {
@@ -81,7 +97,13 @@ export function PostForm({ onSuccess }: PostFormProps) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      // Invalidate all posts queries (with and without hashtag filters)
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      // Also invalidate trending hashtags since a new post might affect trends
+      queryClient.invalidateQueries({ queryKey: ["trendingHashtags"] });
+      // Invalidate stats as well
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      
       toast({
         title: "Post created",
         description: "Your post has been published successfully",
@@ -104,7 +126,7 @@ export function PostForm({ onSuccess }: PostFormProps) {
 
   const handleCustomHashtagChange = (value: string) => {
     form.setValue("customHashtag", value);
-    if (value.length > 0 && commonHashtags) {
+    if (value.length > 0 && commonHashtags && Array.isArray(commonHashtags)) {
       const filtered = commonHashtags.filter((tag: string) =>
         tag.toLowerCase().startsWith(value.toLowerCase()),
       );
@@ -117,12 +139,6 @@ export function PostForm({ onSuccess }: PostFormProps) {
   return (
     <Form {...form}>
       <div className="space-y-4 py-2 pb-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Create a New Post
-          </h2>
-        </div>
-
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
@@ -169,11 +185,11 @@ export function PostForm({ onSuccess }: PostFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {commonHashtags?.map((tag: string) => (
+                      {commonHashtags && Array.isArray(commonHashtags) ? commonHashtags.map((tag: string) => (
                         <SelectItem key={tag} value={`#${tag}`}>
                           #{tag}
                         </SelectItem>
-                      ))}
+                      )) : null}
                       <SelectItem value="custom">Custom hashtag</SelectItem>
                     </SelectContent>
                   </Select>

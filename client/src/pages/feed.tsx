@@ -1,50 +1,107 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/lib/auth";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PostCard } from "@/components/post/PostCard";
+import { ProfileCard } from "@/components/profile/ProfileCard";
 import { hashtagColors } from "@/lib/hashtagColors";
 import { HashtagFilter } from "@/components/post/HashtagFilter";
-import { ProfileCard } from "@/components/profile/ProfileCard";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
+import { PostForm } from "@/components/post/PostForm";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TrendingUp, Users, Hash } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+
+// Define proper types to match PostCard expectations
+interface Post {
+  id: number;
+  content: string;
+  hashtag: string;
+  createdAt: string;
+  isAnonymous: boolean;
+  userId: number;
+  user?: {
+    id: number;
+    fullName: string;
+    username: string;
+  } | null;
+  endorsementCount: number;
+  positiveCount: number;
+  negativeCount: number;
+  currentUserEndorsed: boolean;
+  currentUserDisliked: boolean;
+}
+
+interface TrendingHashtag {
+  hashtag: string;
+  count: number;
+}
+
+interface Stats {
+  totalUsers: number;
+  totalPosts: number;
+  totalHashtags: number;
+}
 
 export default function Feed() {
   const { toast } = useToast();
-  const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null);
+  const [selectedHashtag, setSelectedHashtag] = useState<string>("");
   const { data: currentUser } = useCurrentUser();
+  const queryClient = useQueryClient();
 
   const {
-    data: posts,
+    data: posts = [],
     isLoading: postsLoading,
     error: postsError,
-  } = useQuery({
-    queryKey: [
-      "/api/posts",
-      selectedHashtag
-        ? { hashtag: selectedHashtag.replace("#", "") }
-        : undefined,
-    ],
+  } = useQuery<Post[]>({
+    queryKey: ["posts", selectedHashtag],
+    queryFn: () =>
+      fetch(
+        selectedHashtag
+          ? `/api/posts?hashtag=${encodeURIComponent(selectedHashtag)}`
+          : "/api/posts"
+      ).then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch posts");
+        return res.json();
+      }),
   });
 
-  const { data: trendingHashtags } = useQuery({
-    queryKey: ["/api/hashtags/trending", { limit: 5 }],
+  const { data: trendingHashtags = [] } = useQuery<TrendingHashtag[]>({
+    queryKey: ["trendingHashtags"],
+    queryFn: () =>
+      fetch("/api/hashtags/trending").then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch trending hashtags");
+        return res.json();
+      }),
+  });
+
+  const { data: stats } = useQuery<Stats>({
+    queryKey: ["stats"],
+    queryFn: () =>
+      fetch("/api/stats").then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch stats");
+        return res.json();
+      }),
   });
 
   const handleHashtagSelect = (hashtag: string | null) => {
-    setSelectedHashtag(hashtag);
+    setSelectedHashtag(hashtag || "");
   };
 
-  if (postsError) {
-    toast({
-      title: "Error",
-      description: "Failed to load posts. Please try again later.",
-      variant: "destructive",
-    });
-  }
+  useEffect(() => {
+    if (postsError) {
+      toast({
+        title: "Error",
+        description: "Failed to load posts. Please try again later.",
+        variant: "destructive",
+      });
+    }
+  }, [postsError]);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -63,29 +120,12 @@ export default function Feed() {
               {/* Posts */}
               <div className="space-y-4">
                 {postsLoading ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="bg-white rounded-lg shadow-sm p-5">
-                      <div className="flex justify-between mb-4">
-                        <div className="flex">
-                          <Skeleton className="h-10 w-10 rounded-full" />
-                          <div className="ml-3">
-                            <Skeleton className="h-4 w-24" />
-                            <Skeleton className="h-3 w-16 mt-1" />
-                          </div>
-                        </div>
-                        <Skeleton className="h-6 w-16 rounded-full" />
-                      </div>
-                      <Skeleton className="h-4 w-full mb-2" />
-                      <Skeleton className="h-4 w-full mb-2" />
-                      <Skeleton className="h-4 w-3/4 mb-4" />
-                      <div className="border-t border-gray-100 pt-3 flex justify-between">
-                        <Skeleton className="h-8 w-24" />
-                        <Skeleton className="h-8 w-16" />
-                      </div>
-                    </div>
-                  ))
-                ) : posts && posts.length > 0 ? (
-                  posts.map((post: any) => <PostCard key={post.id} post={post} />)
+                  <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Loading posts...</p>
+                  </div>
+                ) : posts.length > 0 ? (
+                  posts.map((post: Post) => <PostCard key={post.id} post={post} />)
                 ) : (
                   <div className="bg-white rounded-lg shadow-sm p-8 text-center">
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -103,7 +143,9 @@ export default function Feed() {
 
             {/* Sidebar Column */}
             <div className="mt-10 lg:mt-0 space-y-6">
-              {currentUser && <ProfileCard userId={currentUser.id} />}
+              {currentUser && typeof currentUser === 'object' && 'id' in currentUser && (
+                <ProfileCard userId={currentUser.id as number} />
+              )}
 
               <Card>
                 <CardHeader>
@@ -112,7 +154,7 @@ export default function Feed() {
                 <CardContent>
                   {trendingHashtags ? (
                     <div className="space-y-3">
-                      {trendingHashtags.map((tag: any) => (
+                      {trendingHashtags.map((tag: TrendingHashtag) => (
                         <div
                           key={tag.hashtag}
                           className="flex items-center justify-between"
@@ -180,6 +222,34 @@ export default function Feed() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Site Stats</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {stats?.totalUsers || 0}
+                      </div>
+                      <div className="text-sm text-gray-600">Users</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {stats?.totalPosts || 0}
+                      </div>
+                      <div className="text-sm text-gray-600">Posts</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-purple-600">
+                        {stats?.totalHashtags || 0}
+                      </div>
+                      <div className="text-sm text-gray-600">Hashtags</div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
