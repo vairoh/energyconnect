@@ -5,8 +5,8 @@ import { useCurrentUser } from "@/lib/auth";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PostCard } from "@/components/post/PostCard";
-import { ProfileCard } from "@/components/profile/ProfileCard";
-import { hashtagColors } from "@/lib/hashtagColors";
+
+import { getHashtagStyles } from "@/lib/hashtagColors";
 import { HashtagFilter } from "@/components/post/HashtagFilter";
 import { PostForm } from "@/components/post/PostForm";
 import { Button } from "@/components/ui/button";
@@ -143,9 +143,7 @@ export default function Feed() {
 
             {/* Sidebar Column */}
             <div className="mt-10 lg:mt-0 space-y-6">
-              {currentUser && typeof currentUser === 'object' && 'id' in currentUser && (
-                <ProfileCard userId={currentUser.id as number} />
-              )}
+
 
               <Card>
                 <CardHeader>
@@ -160,7 +158,8 @@ export default function Feed() {
                           className="flex items-center justify-between"
                         >
                           <button
-                            className="text-sm font-medium text-gray-700 hover:text-primary"
+                            className="inline-flex items-center px-2 py-1 rounded-md text-sm font-medium hover:opacity-80 transition-opacity"
+                            style={getHashtagStyles(tag.hashtag)}
                             onClick={() => handleHashtagSelect(tag.hashtag)}
                           >
                             {tag.hashtag}
@@ -212,10 +211,8 @@ export default function Feed() {
                         </p>
                         <div className="mt-2 flex">
                           <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              hashtagColors["event"] ||
-                              "bg-gray-100 text-gray-800"
-                            }`}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                            style={getHashtagStyles("event")}
                           >
                             #event
                           </span>

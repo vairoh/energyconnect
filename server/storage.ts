@@ -1,11 +1,12 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "@shared/schema";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, gt } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes('supabase.co') ? { rejectUnauthorized: false } : false,
 });
 const db = drizzle(pool, { schema });
 
@@ -22,10 +23,46 @@ export interface IStorage {
   getPostsByHashtag(hashtag: string, limit?: number): Promise<schema.Post[]>;
   getPostById(id: number): Promise<schema.Post | undefined>;
   getPostsByUserId(userId: number): Promise<schema.Post[]>;
+  getPostsByType(type: string): Promise<schema.Post[]>;
   updatePost(id: number, content: string): Promise<schema.Post>;
   deletePost(id: number): Promise<void>;
 
-  // Endorsement operations
+  // Reaction operations
+  createReaction(reaction: schema.InsertReaction): Promise<schema.Reaction>;
+  getReactionsByPostId(postId: number): Promise<schema.Reaction[]>;
+  getReactionsByUserId(userId: number): Promise<schema.Reaction[]>;
+  updateReactionType(reactionId: number, type: string): Promise<void>;
+  getReactionByUserAndPost(
+    userId: number,
+    postId: number,
+  ): Promise<schema.Reaction | undefined>;
+  getReactionCountsByUser(
+    userId: number,
+  ): Promise<{ hashtag: string; count: number }[]>;
+  getTrendingHashtags(
+    limit: number,
+  ): Promise<{ hashtag: string; count: number }[]>;
+  getTopReactedHashtags(
+    limit: number,
+  ): Promise<{ hashtag: string; count: number }[]>;
+  getTopHashtagsByPostCount(
+    limit: number,
+  ): Promise<{ hashtag: string; count: number }[]>;
+  getAllReactions(): Promise<schema.Reaction[]>;
+
+  // Profile view operations
+  recordProfileView(viewerId: number, profileUserId: number): Promise<void>;
+  getProfileViewCount(profileUserId: number): Promise<number>;
+  getProfileViewers(profileUserId: number, limit?: number): Promise<{
+    viewer: schema.User;
+    viewedAt: Date;
+  }[]>;
+  getRecentProfileViews(profileUserId: number, days?: number): Promise<{
+    date: string;
+    count: number;
+  }[]>;
+
+  // Legacy endorsement operations (for backward compatibility)
   createEndorsement(endorsement: schema.InsertEndorsement): Promise<schema.Endorsement>;
   getEndorsementsByPostId(postId: number): Promise<schema.Endorsement[]>;
   getEndorsementsByUserId(userId: number): Promise<schema.Endorsement[]>;
@@ -37,9 +74,6 @@ export interface IStorage {
   ): Promise<schema.Endorsement | undefined>;
   getEndorsementCountsByUser(
     userId: number,
-  ): Promise<{ hashtag: string; count: number }[]>;
-  getTrendingHashtags(
-    limit: number,
   ): Promise<{ hashtag: string; count: number }[]>;
   getTopEndorsedHashtags(
     limit: number,
@@ -62,26 +96,34 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<number, schema.User>;
   private posts: Map<number, schema.Post>;
+  private reactions: Map<number, schema.Reaction>;
   private endorsements: Map<number, schema.Endorsement>;
   private comments: Map<number, schema.Comment>;
   private invites: Map<string, schema.Invite>;
+  private profileViews: Map<number, schema.ProfileView>;
   private userIdCounter: number;
   private postIdCounter: number;
+  private reactionIdCounter: number;
   private endorsementIdCounter: number;
   private commentIdCounter: number;
   private inviteIdCounter: number;
+  private profileViewIdCounter: number;
 
   constructor() {
     this.users = new Map();
     this.posts = new Map();
+    this.reactions = new Map();
     this.endorsements = new Map();
     this.comments = new Map();
     this.invites = new Map();
+    this.profileViews = new Map();
     this.userIdCounter = 1;
     this.postIdCounter = 1;
+    this.reactionIdCounter = 1;
     this.endorsementIdCounter = 1;
     this.commentIdCounter = 1;
     this.inviteIdCounter = 1;
+    this.profileViewIdCounter = 1;
 
     this.createTestUser();
   }
@@ -93,7 +135,7 @@ export class MemStorage implements IStorage {
         id: this.userIdCounter++,
         username: "testuser",
         password: "password", // This will be hashed in a real scenario
-        fullName: "Test User",
+        fullName: "Demo User",
         email: "test@example.com",
         invitedByUserId: null,
       };
@@ -196,6 +238,12 @@ export class MemStorage implements IStorage {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
+  async getPostsByType(type: string): Promise<schema.Post[]> {
+    return Array.from(this.posts.values())
+      .filter((post) => post.type === type)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
   async updatePost(id: number, content: string): Promise<schema.Post> {
     const post = this.posts.get(id);
     if (!post) {
@@ -289,6 +337,171 @@ export class MemStorage implements IStorage {
     return Array.from(this.endorsements.values());
   }
 
+  // Reaction operations (using new reactions system)
+  async createReaction(insertReaction: schema.InsertReaction): Promise<schema.Reaction> {
+    const id = this.reactionIdCounter++;
+    const now = new Date();
+    const reaction: schema.Reaction = { 
+      ...insertReaction, 
+      id,
+      createdAt: now
+    };
+    this.reactions.set(id, reaction);
+    return reaction;
+  }
+
+  async getReactionsByPostId(postId: number): Promise<schema.Reaction[]> {
+    return Array.from(this.reactions.values()).filter(
+      (reaction) => reaction.postId === postId,
+    );
+  }
+
+  async getReactionsByUserId(userId: number): Promise<schema.Reaction[]> {
+    return Array.from(this.reactions.values()).filter(
+      (reaction) => reaction.userId === userId,
+    );
+  }
+
+  async updateReactionType(reactionId: number, type: string): Promise<void> {
+    const reaction = this.reactions.get(reactionId);
+    if (reaction) {
+      this.reactions.set(reactionId, { ...reaction, reaction: type });
+    }
+  }
+
+  async getReactionByUserAndPost(
+    userId: number,
+    postId: number,
+  ): Promise<schema.Reaction | undefined> {
+    return Array.from(this.reactions.values()).find(
+      (r) => r.userId === userId && r.postId === postId,
+    );
+  }
+
+  async getReactionCountsByUser(
+    userId: number,
+  ): Promise<{ hashtag: string; count: number }[]> {
+    const userReactions = await this.getReactionsByUserId(userId);
+    const hashtagCounts = new Map<string, number>();
+    
+    for (const reaction of userReactions) {
+      const post = this.posts.get(reaction.postId);
+      if (post) {
+        const count = hashtagCounts.get(post.hashtag) || 0;
+        hashtagCounts.set(post.hashtag, count + 1);
+      }
+    }
+    
+    return Array.from(hashtagCounts.entries())
+      .map(([hashtag, count]) => ({ hashtag, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  async getTopReactedHashtags(
+    limit: number,
+  ): Promise<{ hashtag: string; count: number }[]> {
+    const hashtagCounts = new Map<string, number>();
+    
+    for (const reaction of this.reactions.values()) {
+      const post = this.posts.get(reaction.postId);
+      if (post) {
+        const count = hashtagCounts.get(post.hashtag) || 0;
+        hashtagCounts.set(post.hashtag, count + 1);
+      }
+    }
+    
+    return Array.from(hashtagCounts.entries())
+      .map(([hashtag, count]) => ({ hashtag, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  }
+
+  async getTopHashtagsByPostCount(
+    limit: number,
+  ): Promise<{ hashtag: string; count: number }[]> {
+    const hashtagCounts = new Map<string, number>();
+    
+    for (const post of this.posts.values()) {
+      const count = hashtagCounts.get(post.hashtag) || 0;
+      hashtagCounts.set(post.hashtag, count + 1);
+    }
+    
+    return Array.from(hashtagCounts.entries())
+      .map(([hashtag, count]) => ({ hashtag, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  }
+
+  async getAllReactions(): Promise<schema.Reaction[]> {
+    return Array.from(this.reactions.values());
+  }
+
+  // Profile view operations
+  async recordProfileView(viewerId: number, profileUserId: number): Promise<void> {
+    // Don't record self-views
+    if (viewerId === profileUserId) return;
+
+    // Check if this viewer has already viewed this profile in the last hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentView = Array.from(this.profileViews.values()).find(
+      view => view.viewerId === viewerId && 
+               view.profileUserId === profileUserId && 
+               view.viewedAt > oneHourAgo
+    );
+
+    // If no recent view, record a new one
+    if (!recentView) {
+      const id = this.profileViewIdCounter++;
+      const profileView: schema.ProfileView = {
+        id,
+        viewerId,
+        profileUserId,
+        viewedAt: new Date(),
+      };
+      this.profileViews.set(id, profileView);
+    }
+  }
+
+  async getProfileViewCount(profileUserId: number): Promise<number> {
+    return Array.from(this.profileViews.values())
+      .filter(view => view.profileUserId === profileUserId).length;
+  }
+
+  async getProfileViewers(profileUserId: number, limit = 10): Promise<{
+    viewer: schema.User;
+    viewedAt: Date;
+  }[]> {
+    const views = Array.from(this.profileViews.values())
+      .filter(view => view.profileUserId === profileUserId)
+      .sort((a, b) => b.viewedAt.getTime() - a.viewedAt.getTime())
+      .slice(0, limit);
+
+    return views.map(view => ({
+      viewer: this.users.get(view.viewerId)!,
+      viewedAt: view.viewedAt,
+    }));
+  }
+
+  async getRecentProfileViews(profileUserId: number, days = 7): Promise<{
+    date: string;
+    count: number;
+  }[]> {
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const views = Array.from(this.profileViews.values())
+      .filter(view => view.profileUserId === profileUserId && view.viewedAt > cutoffDate);
+
+    // Group by date
+    const viewsByDate = new Map<string, number>();
+    views.forEach(view => {
+      const dateStr = view.viewedAt.toISOString().split('T')[0];
+      viewsByDate.set(dateStr, (viewsByDate.get(dateStr) || 0) + 1);
+    });
+
+    return Array.from(viewsByDate.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
   // Comment operations
   async createComment(insertComment: schema.InsertComment): Promise<schema.Comment> {
     const id = this.commentIdCounter++;
@@ -347,15 +560,15 @@ export class MemStorage implements IStorage {
       [testUser] = await db.insert(schema.users).values({
         username: "testuser",
         password: hashedPassword,
-        fullName: "Test User",
+        fullName: "Demo User",
         email: "test@example.com",
       }).returning();
       
       console.log("Created test user for development access");
       
-      // Seed a sample post for the test user
+      // Seed a sample post for the demo user
       await db.insert(schema.posts).values({
-        content: "This is a sample post from the test user. Welcome to the platform!",
+        content: "This is a sample post from the demo user. Welcome to the platform!",
         hashtag: "#gridcode",
         userId: testUser.id,
         isAnonymous: false,
@@ -436,9 +649,188 @@ class DbStorage implements IStorage {
       .set({ type })
       .where(eq(schema.endorsements.id, endorsementId));
   }
+
+  // Reaction operations (using new reactions table)
+  async createReaction(reaction: schema.InsertReaction): Promise<schema.Reaction> {
+    const newReaction = await db.insert(schema.reactions).values(reaction).returning();
+    return newReaction[0];
+  }
+
+  async getReactionsByPostId(postId: number): Promise<schema.Reaction[]> {
+    return await db.query.reactions.findMany({
+      where: (reactions, { eq }) => eq(reactions.postId, postId),
+    });
+  }
+
+  async getReactionsByUserId(userId: number): Promise<schema.Reaction[]> {
+    return await db.query.reactions.findMany({
+      where: (reactions, { eq }) => eq(reactions.userId, userId),
+    });
+  }
+
+  async updateReactionType(reactionId: number, type: string): Promise<void> {
+    await db.update(schema.reactions)
+      .set({ reaction: type })
+      .where(eq(schema.reactions.id, reactionId));
+  }
+
+  async getReactionByUserAndPost(userId: number, postId: number): Promise<schema.Reaction | undefined> {
+    return await db.query.reactions.findFirst({
+      where: (reactions, { and, eq }) => and(
+        eq(reactions.userId, userId),
+        eq(reactions.postId, postId)
+      ),
+    });
+  }
+
+  async getReactionCountsByUser(userId: number): Promise<{ hashtag: string; count: number; }[]> {
+    // Get reactions by user and join with posts to get hashtags
+    const result = await db
+      .select({
+        hashtag: schema.posts.hashtag,
+        count: sql<number>`count(${schema.reactions.id})::int`,
+      })
+      .from(schema.reactions)
+      .innerJoin(schema.posts, eq(schema.reactions.postId, schema.posts.id))
+      .where(eq(schema.reactions.userId, userId))
+      .groupBy(schema.posts.hashtag)
+      .orderBy(desc(sql<number>`count(${schema.reactions.id})`));
+    
+    // Convert string counts to numbers for proper sorting
+    return result.map(item => ({
+      hashtag: item.hashtag,
+      count: typeof item.count === 'string' ? parseInt(item.count) : item.count
+    }));
+  }
+
+  async getTopReactedHashtags(limit: number): Promise<{ hashtag: string; count: number; }[]> {
+    const result = await db
+      .select({
+        hashtag: schema.posts.hashtag,
+        count: sql<number>`count(${schema.reactions.id})::int`,
+      })
+      .from(schema.reactions)
+      .innerJoin(schema.posts, eq(schema.reactions.postId, schema.posts.id))
+      .groupBy(schema.posts.hashtag)
+      .orderBy(desc(sql<number>`count(${schema.reactions.id})`))
+      .limit(limit);
+    
+    // Convert string counts to numbers for proper sorting
+    return result.map(item => ({
+      hashtag: item.hashtag,
+      count: typeof item.count === 'string' ? parseInt(item.count) : item.count
+    }));
+  }
+
+  async getTopHashtagsByPostCount(limit: number): Promise<{ hashtag: string; count: number; }[]> {
+    const result = await db
+      .select({
+        hashtag: schema.posts.hashtag,
+        count: sql<number>`count(${schema.posts.id})::int`,
+      })
+      .from(schema.posts)
+      .groupBy(schema.posts.hashtag)
+      .orderBy(desc(sql<number>`count(${schema.posts.id})`))
+      .limit(limit);
+    
+    // Convert string counts to numbers for proper sorting
+    return result.map(item => ({
+      hashtag: item.hashtag,
+      count: typeof item.count === 'string' ? parseInt(item.count) : item.count
+    }));
+  }
+
+  async getAllReactions(): Promise<schema.Reaction[]> {
+    return await db.query.reactions.findMany();
+  }
+
+  // Profile view operations
+  async recordProfileView(viewerId: number, profileUserId: number): Promise<void> {
+    // Don't record self-views
+    if (viewerId === profileUserId) return;
+
+    // Check if this viewer has already viewed this profile in the last hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentView = await db.query.profileViews.findFirst({
+      where: (profileViews, { and, eq, gt }) => and(
+        eq(profileViews.viewerId, viewerId),
+        eq(profileViews.profileUserId, profileUserId),
+        gt(profileViews.viewedAt, oneHourAgo)
+      ),
+    });
+
+    // If no recent view, record a new one
+    if (!recentView) {
+      await db.insert(schema.profileViews).values({
+        viewerId,
+        profileUserId,
+      });
+    }
+  }
+
+  async getProfileViewCount(profileUserId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.profileViews)
+      .where(eq(schema.profileViews.profileUserId, profileUserId));
+    
+    return typeof result[0].count === 'string' ? parseInt(result[0].count) : result[0].count;
+  }
+
+  async getProfileViewers(profileUserId: number, limit = 10): Promise<{
+    viewer: schema.User;
+    viewedAt: Date;
+  }[]> {
+    const views = await db
+      .select({
+        viewer: schema.users,
+        viewedAt: schema.profileViews.viewedAt,
+      })
+      .from(schema.profileViews)
+      .innerJoin(schema.users, eq(schema.profileViews.viewerId, schema.users.id))
+      .where(eq(schema.profileViews.profileUserId, profileUserId))
+      .orderBy(desc(schema.profileViews.viewedAt))
+      .limit(limit);
+
+    return views;
+  }
+
+  async getRecentProfileViews(profileUserId: number, days = 7): Promise<{
+    date: string;
+    count: number;
+  }[]> {
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    
+    const result = await db
+      .select({
+        date: sql<string>`DATE(${schema.profileViews.viewedAt})`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(schema.profileViews)
+      .where(
+        and(
+          eq(schema.profileViews.profileUserId, profileUserId),
+          gt(schema.profileViews.viewedAt, cutoffDate)
+        )
+      )
+      .groupBy(sql`DATE(${schema.profileViews.viewedAt})`)
+      .orderBy(sql`DATE(${schema.profileViews.viewedAt})`);
+
+    return result.map(item => ({
+      date: item.date,
+      count: typeof item.count === 'string' ? parseInt(item.count) : item.count
+    }));
+  }
   async getPostsByUserId(userId: number): Promise<schema.Post[]> {
     return await db.query.posts.findMany({
       where: (posts, { eq }) => eq(posts.userId, userId),
+      orderBy: (posts, { desc }) => [desc(posts.createdAt)],
+    });
+  }
+
+  async getPostsByType(type: string): Promise<schema.Post[]> {
+    return await db.query.posts.findMany({
+      where: (posts, { eq }) => eq(posts.type, type),
       orderBy: (posts, { desc }) => [desc(posts.createdAt)],
     });
   }
@@ -541,14 +933,14 @@ class DbStorage implements IStorage {
         const insertedUsers = await tx.insert(schema.users).values({
           username: "testuser",
           password: hashedPassword,
-          fullName: "Test User",
+          fullName: "Demo User",
           email: "test@example.com",
         }).returning();
         testUser = insertedUsers[0];
         console.log("Created test user for development access");
         
         await tx.insert(schema.posts).values({
-          content: "This is a sample post from the test user. Welcome to the platform!",
+          content: "This is a sample post from the demo user. Welcome to the platform!",
           hashtag: "#gridcode",
           userId: testUser.id,
           isAnonymous: false,

@@ -7,7 +7,7 @@ import { useCurrentUser } from "@/lib/auth";
 import { MessageSquare, MoreHorizontal, Heart, Repeat2, Send } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { hashtagColors } from "@/lib/hashtagColors";
+import { getHashtagStyles } from "@/lib/hashtagColors";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -244,7 +244,7 @@ export function PostCard({ post }: PostCardProps) {
     deleteMutation.mutate();
   };
 
-    const createdAt = new Date(post.createdAt);
+  const createdAt = new Date(post.createdAt);
   const timeAgo = formatDistanceToNow(createdAt, { addSuffix: true });
 
   // Generate initials for avatar
@@ -287,10 +287,8 @@ export function PostCard({ post }: PostCardProps) {
         </div>
         <div className="flex items-center">
           <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
-              hashtagColors[post.hashtag.toLowerCase().replace("#", "")] ||
-              "bg-gray-100 text-gray-800"
-            }`}
+            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize"
+            style={getHashtagStyles(post.hashtag)}
           >
             #{post.hashtag.replace("#", "").toLowerCase()}
           </span>
@@ -406,7 +404,7 @@ export function PostCard({ post }: PostCardProps) {
             </button>
 
             {/* Send Button */}
-            <button 
+        <button
               className="flex-1 text-sm text-gray-600 hover:text-purple-500 hover:bg-gray-50 flex items-center justify-center space-x-2 px-3 py-2 rounded-lg transition-colors"
               onClick={() => setShowSendDialog(true)}
             >
@@ -602,15 +600,15 @@ export function PostCard({ post }: PostCardProps) {
                 <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                   <span className="text-sm font-medium text-primary">
                     {post.user?.fullName?.charAt(0) || post.isAnonymous ? "A" : "U"}
-                  </span>
+          </span>
                 </div>
                 <div>
                   <p className="text-sm font-medium">
                     {post.isAnonymous ? "Anonymous" : post.user?.fullName || "Unknown User"}
                   </p>
                   <p className="text-xs text-gray-500">{post.hashtag}</p>
-                </div>
-              </div>
+      </div>
+    </div>
               <p className="text-sm text-gray-700">{post.content}</p>
             </div>
             

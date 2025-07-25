@@ -1,7 +1,6 @@
-import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { HashtagStats } from "./HashtagStats";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProfileCardProps {
@@ -67,21 +66,10 @@ export function ProfileCard({ userId, minimized = false }: ProfileCardProps) {
           </div>
         </div>
         
-        {endorsementStats && endorsementStats.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Hashtag Reputation</h3>
-            <HashtagStats stats={endorsementStats} />
-          </div>
-        )}
+
       </CardContent>
       
-      {!minimized && (
-        <CardFooter className="bg-gray-50 px-5 py-3">
-          <Link href={`/profile/${user.id}`} className="text-primary hover:text-primary/80 text-sm font-medium">
-            View full profile
-          </Link>
-        </CardFooter>
-      )}
+
     </Card>
   );
 }

@@ -8,6 +8,10 @@ import {
   insertEndorsementSchema,
   insertReactionSchema,
   insertCommentSchema,
+  insertJobPostSchema,
+  insertEventPostSchema,
+  insertGeneralPostSchema,
+  insertProfileViewSchema,
   COMMON_HASHTAGS,
 } from "@shared/schema";
 import { ZodError } from "zod";
@@ -193,10 +197,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Post routes
   app.post("/api/posts", isAuthenticated, async (req, res) => {
     try {
-      const postData = insertPostSchema.parse({
-        ...req.body,
-        userId: req.session.userId,
-      });
+      const postType = req.body.type || "general";
+      let postData;
+
+      // Parse based on post type
+      switch (postType) {
+        case "job":
+          postData = insertJobPostSchema.parse({
+            ...req.body,
+            userId: req.session.userId,
+          });
+          break;
+        case "event":
+          postData = insertEventPostSchema.parse({
+            ...req.body,
+            userId: req.session.userId,
+          });
+          break;
+        case "general":
+        default:
+          postData = insertGeneralPostSchema.parse({
+            ...req.body,
+            userId: req.session.userId,
+            type: "general",
+          });
+          break;
+      }
 
       // Ensure hashtag is properly formatted
       if (!postData.hashtag.startsWith("#")) {
@@ -216,45 +242,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/posts", async (req, res) => {
     try {
       const hashtag = req.query.hashtag as string | undefined;
-      const posts = hashtag
-        ? await storage.getPostsByHashtag(hashtag)
-        : await storage.getPosts();
+      const type = req.query.type as string | undefined;
+      
+      let posts;
+      if (hashtag) {
+        posts = await storage.getPostsByHashtag(hashtag);
+      } else if (type) {
+        posts = await storage.getPostsByType(type);
+      } else {
+        posts = await storage.getPosts();
+      }
 
       const enhancedPosts = await Promise.all(
         posts.map(async (post) => {
-                  const endorsements = await storage.getEndorsementsByPostId(post.id);
+          // Get reactions using new reactions table
+          const reactions = await storage.getReactionsByPostId(post.id);
         
-        // Group reactions by type - map old endorsement types to new reaction types
-        const reactionCounts = endorsements.reduce((acc, endorsement) => {
-          // Map old endorsement types to new reaction types
-          let reactionType = endorsement.type || "like";
-          if (reactionType === "positive") reactionType = "like";
-          if (reactionType === "negative") reactionType = "angry";
+          // Group reactions by type
+          const reactionCounts = reactions.reduce((acc, reaction) => {
+            acc[reaction.reaction] = (acc[reaction.reaction] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
           
-          acc[reactionType] = (acc[reactionType] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-        
-        const currentUserEndorsement = req.session.userId
-          ? await storage.getEndorsementByUserAndPost(
-              req.session.userId,
-              post.id,
-              post.hashtag
-            )
-          : null;
+          // Get current user's reaction
+          const currentUserReaction = req.session.userId
+            ? await storage.getReactionByUserAndPost(req.session.userId, post.id)
+            : null;
 
-        return {
-          ...post,
-          endorsementCount: reactionCounts.like || 0, // Keep for backward compatibility
-          positiveCount: reactionCounts.like || 0,
-          negativeCount: reactionCounts.angry || 0,
-          reactions: reactionCounts,
-          currentUserReaction: currentUserEndorsement?.type === "positive" ? "like" : 
-                               currentUserEndorsement?.type === "negative" ? "angry" :
-                               currentUserEndorsement?.type || null,
-          currentUserEndorsed: currentUserEndorsement?.type === "positive" || currentUserEndorsement?.type === "like",
-          currentUserDisliked: currentUserEndorsement?.type === "negative" || currentUserEndorsement?.type === "angry",
-        };
+          // Calculate totals for backward compatibility
+          const totalReactions = reactions.length;
+          const likeCount = reactionCounts.like || 0;
+
+          return {
+            ...post,
+            reactionCount: totalReactions, // New field using reactions terminology
+            endorsementCount: likeCount, // Keep for backward compatibility
+            positiveCount: likeCount, // Keep for backward compatibility
+            negativeCount: reactionCounts.angry || 0, // Keep for backward compatibility
+            reactions: reactionCounts,
+            currentUserReaction: currentUserReaction?.reaction || null,
+            currentUserEndorsed: currentUserReaction?.reaction === "like", // Keep for backward compatibility
+            currentUserDisliked: currentUserReaction?.reaction === "angry", // Keep for backward compatibility
+          };
         })
       );
 
@@ -277,9 +306,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Post not found" });
       }
 
-      const endorsements = await storage.getEndorsementsByPostId(post.id);
-      const positiveEndorsements = endorsements.filter(e => e.type === "positive");
-      const negativeEndorsements = endorsements.filter(e => e.type === "negative");
+      // Get reactions using new reactions table
+      const reactions = await storage.getReactionsByPostId(post.id);
+      
+      // Group reactions by type
+      const reactionCounts = reactions.reduce((acc, reaction) => {
+        acc[reaction.reaction] = (acc[reaction.reaction] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
 
       let user = null;
       if (post.userId && !post.isAnonymous) {
@@ -290,22 +324,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const currentUserEndorsement = req.session.userId
-        ? await storage.getEndorsementByUserAndPost(
-            req.session.userId as number,
-            post.id,
-            post.hashtag,
-          )
+      // Get current user's reaction
+      const currentUserReaction = req.session.userId
+        ? await storage.getReactionByUserAndPost(req.session.userId as number, post.id)
         : null;
+
+      // Calculate totals for backward compatibility
+      const totalReactions = reactions.length;
+      const likeCount = reactionCounts.like || 0;
+      const angryCount = reactionCounts.angry || 0;
 
       return res.json({
         ...post,
         user,
-        endorsementCount: positiveEndorsements.length, // Keep for backward compatibility
-        positiveCount: positiveEndorsements.length,
-        negativeCount: negativeEndorsements.length,
-        currentUserEndorsed: currentUserEndorsement?.type === "positive" || false,
-        currentUserDisliked: currentUserEndorsement?.type === "negative" || false,
+        reactionCount: totalReactions, // New field using reactions terminology
+        endorsementCount: likeCount, // Keep for backward compatibility
+        positiveCount: likeCount, // Keep for backward compatibility
+        negativeCount: angryCount, // Keep for backward compatibility
+        reactions: reactionCounts,
+        currentUserReaction: currentUserReaction?.reaction || null,
+        currentUserEndorsed: currentUserReaction?.reaction === "like", // Keep for backward compatibility
+        currentUserDisliked: currentUserReaction?.reaction === "angry", // Keep for backward compatibility
       });
     } catch (error) {
       console.error(`Failed to fetch post with id ${req.params.id}:`, error);
@@ -422,7 +461,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reactions routes (using existing endorsements table with type field)
+  // Reactions routes (using new reactions table)
   app.post("/api/reactions", isAuthenticated, async (req, res) => {
     try {
       const postId = parseInt(req.body.postId);
@@ -443,27 +482,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user has already reacted to this post
-      const existingEndorsement = await storage.getEndorsementByUserAndPost(
+      const existingReaction = await storage.getReactionByUserAndPost(
         req.session.userId as number,
         postId,
-        post.hashtag,
       );
 
-      if (existingEndorsement) {
-        // Update existing reaction using endorsement system
-        await storage.updateEndorsementType(existingEndorsement.id, reaction);
+      if (existingReaction) {
+        // Update existing reaction
+        await storage.updateReactionType(existingReaction.id, reaction);
         return res.status(200).json({ message: "Reaction updated", reaction });
       } else {
-        // Create new reaction using endorsement system
-        const endorsementData = insertEndorsementSchema.parse({
+        // Create new reaction
+        const reactionData = insertReactionSchema.parse({
           postId,
           userId: req.session.userId,
-          hashtag: post.hashtag,
-          type: reaction,
+          reaction,
         });
 
-        const newEndorsement = await storage.createEndorsement(endorsementData);
-        return res.status(201).json(newEndorsement);
+        const newReaction = await storage.createReaction(reactionData);
+        return res.status(201).json(newReaction);
       }
     } catch (error) {
       if (error instanceof ZodError) {
@@ -551,13 +588,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
+      // Record profile view if user is authenticated and viewing someone else's profile
+      if (req.session.userId && req.session.userId !== userId) {
+        await storage.recordProfileView(req.session.userId, userId);
+      }
+
       // Get user's posts that aren't anonymous
       const posts = (await storage.getPostsByUserId(userId)).filter(
         (post) => !post.isAnonymous,
       );
 
-      // Get endorsement stats
-      const endorsementStats = await storage.getEndorsementCountsByUser(userId);
+      // Get reaction stats using new reactions system
+      const reactionStats = await storage.getReactionCountsByUser(userId);
+
+      // Get profile view count
+      const profileViewCount = await storage.getProfileViewCount(userId);
 
       // Don't include password
       const { password, ...userWithoutPassword } = user;
@@ -565,10 +610,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({
         user: userWithoutPassword,
         posts,
-        endorsementStats,
+        reactionStats, // New field using reactions terminology
+        endorsementStats: reactionStats, // Keep for backward compatibility
+        profileViewCount,
       });
     } catch (error) {
       return res.status(500).json({ message: "Error fetching user profile" });
+    }
+  });
+
+  // Profile view routes
+  app.get("/api/users/:id/profile-viewers", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      // Only allow users to see their own profile viewers
+      if (req.session.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const limit = parseInt((req.query.limit as string) || "10");
+      const viewers = await storage.getProfileViewers(userId, limit);
+
+      return res.json(viewers);
+    } catch (error) {
+      return res.status(500).json({ message: "Error fetching profile viewers" });
+    }
+  });
+
+  app.get("/api/users/:id/profile-analytics", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      // Only allow users to see their own analytics
+      if (req.session.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const days = parseInt((req.query.days as string) || "7");
+      const [viewCount, recentViews] = await Promise.all([
+        storage.getProfileViewCount(userId),
+        storage.getRecentProfileViews(userId, days),
+      ]);
+
+      return res.json({
+        totalViews: viewCount,
+        recentViews,
+        period: `${days} days`,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Error fetching profile analytics" });
     }
   });
 
@@ -582,18 +679,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const limit = parseInt((req.query.limit as string) || "5");
 
-      // Step 1: Get all endorsements from storage
-      const allEndorsements = await storage.getAllEndorsements();
+      // Get trending hashtags based on post count (not reaction count)
+      const trendingHashtags = await storage.getTopHashtagsByPostCount(limit);
+      
+      return res.json(trendingHashtags);
+    } catch (error) {
+      console.error('Error fetching trending hashtags:', error);
+      return res
+        .status(500)
+        .json({ message: "Error fetching trending hashtags" });
+    }
+  });
 
-      // Step 2: Count endorsements per hashtag
+  // Debug endpoint to compare post counts vs reaction counts
+  app.get("/api/hashtags/analytics", async (req, res) => {
+    try {
+      const limit = parseInt((req.query.limit as string) || "10");
+
+      const [postCounts, reactionCounts] = await Promise.all([
+        storage.getTopHashtagsByPostCount(limit),
+        storage.getTopReactedHashtags(limit),
+      ]);
+
+      return res.json({
+        byPostCount: postCounts,
+        byReactionCount: reactionCounts,
+        explanation: {
+          postCount: "Number of posts per hashtag",
+          reactionCount: "Number of reactions per hashtag"
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching hashtag analytics:', error);
+      return res
+        .status(500)
+        .json({ message: "Error fetching hashtag analytics" });
+    }
+  });
+
+  // Legacy trending hashtags route (fallback to manual calculation if needed)
+  app.get("/api/hashtags/trending-legacy", async (req, res) => {
+    try {
+      const limit = parseInt((req.query.limit as string) || "5");
+
+      // Step 1: Get all reactions from storage and join with posts for hashtags
+      const allReactions = await storage.getAllReactions();
+      const allPosts = await storage.getPosts(); // Get all posts to map reaction -> hashtag
+
+      // Step 2: Count reactions per hashtag
       const hashtagCounts = new Map<string, number>();
-      for (const endorsement of allEndorsements) {
-        const tag = endorsement.hashtag;
-        const currentCount = hashtagCounts.get(tag) || 0;
-        hashtagCounts.set(tag, currentCount + 1);
+      for (const reaction of allReactions) {
+        const post = allPosts.find(p => p.id === reaction.postId);
+        if (post) {
+          const tag = post.hashtag;
+          const currentCount = hashtagCounts.get(tag) || 0;
+          hashtagCounts.set(tag, currentCount + 1);
+        }
       }
 
-      // Step 3: Sort by most endorsements
+      // Step 3: Sort by most reactions
       const sorted = Array.from(hashtagCounts.entries())
         .map(([hashtag, count]) => ({ hashtag, count }))
         .sort((a, b) => b.count - a.count)

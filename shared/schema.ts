@@ -5,6 +5,7 @@ import {
   integer,
   boolean,
   timestamp,
+  json,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -32,13 +33,15 @@ export const insertUserSchema = createInsertSchema(users).pick({
   invitedByUserId: true,
 });
 
-// Posts schema
+// Enhanced Posts schema with structured data support
 export const posts = pgTable("posts", {
   id: serial("id").primaryKey(),
   content: text("content").notNull(),
   hashtag: text("hashtag").notNull(),
   userId: integer("user_id").references(() => users.id),
   isAnonymous: boolean("is_anonymous").default(false).notNull(),
+  type: text("type").notNull().default("general"), // "general", "job", "event"
+  structuredData: json("structured_data"), // JSON field for job/event specific data
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -46,6 +49,56 @@ export const posts = pgTable("posts", {
 export const insertPostSchema = createInsertSchema(posts).omit({
   id: true,
   createdAt: true,
+});
+
+// Job Post Schema
+export const jobPostSchema = z.object({
+  jobTitle: z.string().min(3),
+  company: z.string().min(2),
+  location: z.string().min(2),
+  jobType: z.string(),
+  experience: z.string(),
+  salary: z.string().optional(),
+  description: z.string().min(20).max(1000),
+  hashtag: z.string().min(1),
+});
+
+export const insertJobPostSchema = z.object({
+  content: z.string().min(5).max(2000),
+  hashtag: z.string().min(1),
+  type: z.literal("job"),
+  structuredData: jobPostSchema.omit({ hashtag: true }),
+  isAnonymous: z.boolean().default(false),
+});
+
+// Event Post Schema
+export const eventPostSchema = z.object({
+  eventName: z.string().min(3),
+  eventType: z.string(),
+  date: z.string(),
+  time: z.string(),
+  location: z.string().min(2),
+  capacity: z.string().optional(),
+  ticketPrice: z.string().optional(),
+  description: z.string().min(20).max(1000),
+  hashtag: z.string().min(1),
+});
+
+export const insertEventPostSchema = z.object({
+  content: z.string().min(5).max(2000),
+  hashtag: z.string().min(1),
+  type: z.literal("event"),
+  structuredData: eventPostSchema.omit({ hashtag: true }),
+  isAnonymous: z.boolean().default(false),
+});
+
+// General Post Schema
+export const insertGeneralPostSchema = z.object({
+  content: z.string().min(5).max(500),
+  hashtag: z.string().min(1),
+  type: z.literal("general").default("general"),
+  structuredData: z.null().default(null),
+  isAnonymous: z.boolean().default(false),
 });
 
 // Reactions schema (replacing endorsements)
@@ -83,6 +136,27 @@ export const insertCommentSchema = createInsertSchema(comments).omit({
   id: true,
   createdAt: true,
 });
+
+// Profile Views schema
+export const profileViews = pgTable("profile_views", {
+  id: serial("id").primaryKey(),
+  viewerId: integer("viewer_id")
+    .references(() => users.id)
+    .notNull(),
+  profileUserId: integer("profile_user_id")
+    .references(() => users.id)
+    .notNull(),
+  viewedAt: timestamp("viewed_at").defaultNow().notNull(),
+});
+
+export const insertProfileViewSchema = createInsertSchema(profileViews).omit({
+  id: true,
+  viewedAt: true,
+});
+
+// Types
+export type ProfileView = typeof profileViews.$inferSelect;
+export type InsertProfileView = typeof profileViews.$inferInsert;
 
 // Keep endorsements for backward compatibility but mark as deprecated
 // Endorsements schema

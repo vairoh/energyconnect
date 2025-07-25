@@ -11,14 +11,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { AuthForms } from "@/components/auth/AuthForms";
-import { PostForm } from "@/components/post/PostForm";
+import { NewPostDropdown } from "@/components/post/NewPostDropdown";
 import { ChevronDown, LogOut, Settings, User } from "lucide-react";
 
 export function Navbar() {
   const [location] = useLocation();
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authOpen, setAuthOpen] = useState(false);
-  const [newPostOpen, setNewPostOpen] = useState(false);
 
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const logout = useLogout();
@@ -65,28 +64,7 @@ export function Navbar() {
               <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse"></div>
             ) : user ? (
               <>
-                <Dialog open={newPostOpen} onOpenChange={setNewPostOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="mr-4" size="sm">
-                      <svg
-                        className="h-4 w-4 mr-1"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 3a1 1 0 00-1 1v5H4a1 1 0 100 2h5v5a1 1 0 102 0v-5h5a1 1 0 100-2h-5V4a1 1 0 00-1-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      New Post
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <PostForm onSuccess={() => setNewPostOpen(false)} />
-                  </DialogContent>
-                </Dialog>
+                <NewPostDropdown />
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
